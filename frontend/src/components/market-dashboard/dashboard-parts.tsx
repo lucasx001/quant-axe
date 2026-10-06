@@ -56,7 +56,7 @@ type WatchlistPanelProps = {
   searchStatus: "idle" | "loading" | "ready" | "error";
   onQueryChange: (query: string) => void;
   onSelect: (symbol: string) => void;
-  onAdd: (symbol: string, quote?: Quote | null) => void;
+  onAdd: (symbol: string) => void;
   onRemove: (symbol: string) => void;
 };
 
@@ -113,7 +113,7 @@ export function WatchlistPanel({
                     key={stock.symbol}
                     stock={stock}
                     quote={quote}
-                    onAdd={() => onAdd(stock.symbol, quote)}
+                    onAdd={() => onAdd(stock.symbol)}
                   />
                 );
               })}
@@ -134,7 +134,7 @@ export function WatchlistPanel({
                 <SearchResultButton
                   stock={{ symbol: lookupQuote.symbol, name: lookupQuote.name }}
                   quote={lookupQuote}
-                  onAdd={() => onAdd(lookupQuote.symbol, lookupQuote)}
+                  onAdd={() => onAdd(lookupQuote.symbol)}
                 />
               )}
               {lookupStatus === "idle" && filteredResults.length === 0 && searchStatus !== "loading" && (
@@ -733,6 +733,13 @@ export function StrategyObservationPanel() {
           <Layers3 size={15} />
           Universe Center
         </span>
+        <ArrowRight size={16} />
+      </Link>
+      <Link
+        href="/backtests"
+        className="mt-2 inline-flex w-full items-center justify-between rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-200 transition hover:border-emerald-300/60 hover:bg-emerald-300/15"
+      >
+        <span>历史回测（研究预览）</span>
         <ArrowRight size={16} />
       </Link>
     </section>

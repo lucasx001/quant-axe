@@ -86,8 +86,9 @@ class FakeS3Client:
 
 
 def make_snapshot() -> bytes:
-    with tempfile.NamedTemporaryFile(suffix=".db") as temporary:
-        connection = sqlite3.connect(temporary.name)
+    with tempfile.TemporaryDirectory() as temporary:
+        database = Path(temporary) / "snapshot.db"
+        connection = sqlite3.connect(database)
         connection.executescript(
             """
             CREATE TABLE platforms (id TEXT PRIMARY KEY, name TEXT NOT NULL);
@@ -127,7 +128,7 @@ def make_snapshot() -> bytes:
         )
         connection.commit()
         connection.close()
-        return Path(temporary.name).read_bytes()
+        return database.read_bytes()
 
 
 if __name__ == "__main__":

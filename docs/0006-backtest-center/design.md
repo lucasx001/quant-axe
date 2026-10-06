@@ -10,7 +10,7 @@
 
 - 管理回测任务。
 - 加载历史数据、股票池、因子和策略版本。
-- 执行日频事件驱动回测。
+- 通过 Hikyuu 执行 A 股日频回测，管理任务和输入版本。
 - 模拟手续费、滑点、T+1、停牌、涨跌停。
 - 输出收益曲线、回撤曲线、交易明细、持仓明细和风险指标。
 
@@ -24,16 +24,15 @@
 ## 3. 技术架构
 
 ```text
-Backtest Config
-  -> Data Snapshot Loader
-  -> Strategy Signal Runner
-  -> Portfolio Builder
-  -> Risk/Execution Simulator
-  -> Account Ledger
-  -> Report Generator
+Backtest Config / Input Manifest
+  -> Hikyuu Historical Data Snapshot
+  -> Strategy / Universe Adapter
+  -> Hikyuu Execution + A-share Constraints Adapter
+  -> Result Mapper / Report Generator
+  -> PostgreSQL Task and Report Store
 ```
 
-第一版建议只做 A 股日频回测，不做分钟级和高频。
+第一版只做 A 股日频回测，不做分钟级和高频。具体阶段、数据来源、验收门槛见 [Hikyuu 接入实施计划](./hikyuu-implementation-plan.md)。Hikyuu 是回测执行引擎；FastAPI 管理任务与 API，PostgreSQL 保存任务和结果，不另建独立撮合与账户主循环。
 
 ## 4. 数据模型
 
@@ -70,14 +69,14 @@ type BacktestMetrics = {
 
 ```text
 创建回测任务
-  -> 锁定数据版本、股票池版本、策略版本
+  -> 锁定 Hikyuu 导入快照、股票池版本、策略版本和执行参数
   -> 从 start_date 逐日推进
   -> 每个交易日加载当日可见数据
   -> 策略生成信号
   -> 组合模块生成目标仓位
   -> 风控模块检查
-  -> 执行模拟成交
-  -> 更新现金、持仓、净值
+  -> 由 Hikyuu/统一约束适配层执行模拟成交
+  -> 映射 Hikyuu 账户结果为现金、持仓、净值
   -> 生成指标和报告
 ```
 
@@ -89,6 +88,8 @@ type BacktestMetrics = {
 - 跌停：跌停股票不可卖出。
 - 流动性：单笔成交金额不得超过当日成交额的设定比例。
 - 手续费和滑点必须从成交结果中扣除。
+- 信号在收盘后生成，首版按下一可交易日开盘价模拟成交；若当日不可交易，必须说明拒绝/延期原因。
+- 未经逐项验证，不假设 Hikyuu 默认行为覆盖全部 A 股规则；缺少关键历史状态时禁止给出正式回测结果。
 
 ## 7. API 设计
 
@@ -110,6 +111,7 @@ GET /api/backtests/[id]/logs
 - 测试同一配置重复运行结果一致。
 - 测试策略不能读取未来日期数据。
 - 测试回测指标计算正确。
+- 测试 Hikyuu 版本、导入批次/摘要、复权和策略/股票池版本被完整记录；验证真实数据导入的缺口与重跑一致性。
 
 ## 9. 验收标准
 

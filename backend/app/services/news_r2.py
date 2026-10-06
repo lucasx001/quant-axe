@@ -219,10 +219,10 @@ def parse_snapshot_bytes(
 ) -> NewsSnapshot:
     """Parse a news-collector SQLite object into serving and analysis rows."""
 
-    with tempfile.NamedTemporaryFile(suffix=".db") as temporary:
-        temporary.write(payload)
-        temporary.flush()
-        uri = f"file:{Path(temporary.name).as_posix()}?mode=ro"
+    with tempfile.TemporaryDirectory() as temporary:
+        database = Path(temporary) / "snapshot.db"
+        database.write_bytes(payload)
+        uri = f"file:{database.as_posix()}?mode=ro"
         with closing(sqlite3.connect(uri, uri=True)) as connection:
             connection.row_factory = sqlite3.Row
             crawl_time = _latest_crawl_time(connection)

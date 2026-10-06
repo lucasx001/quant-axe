@@ -45,6 +45,26 @@ tasks:
       - "{{.PYTHON_BOOTSTRAP}} -m venv {{.BACKEND_VENV}}"
       - "{{.BACKEND_PYTHON}} -m pip install -r backend/requirements-dev.txt"
 
+  backend:hikyuu:install:
+    desc: Install Hikyuu in the backend virtualenv
+    cmds:
+      - "{{.BACKEND_PYTHON}} -m pip install -r backend/requirements-hikyuu.txt"
+
+  backend:hikyuu:configure:
+    desc: Configure the official Hikyuu importer to store data in this workspace
+    cmds:
+      - "{{.BACKEND_PYTHON}} -m backend.scripts.setup_hikyuu"
+
+  backend:hikyuu:import:
+    desc: Run the official Hikyuu daily-bar importer (may take time)
+    cmds:
+      - "{{if eq OS \"windows\"}}{{.BACKEND_VENV}}/Scripts/importdata.exe{{else}}{{.BACKEND_VENV}}/bin/importdata{{end}}"
+
+  backend:hikyuu:snapshot:
+    desc: Freeze the completed Hikyuu import for repeatable backtests
+    cmds:
+      - "{{.BACKEND_PYTHON}} -m backend.scripts.snapshot_hikyuu"
+
   frontend:install:
     desc: Install frontend Node dependencies
     dir: "{{.FRONTEND_DIR}}"

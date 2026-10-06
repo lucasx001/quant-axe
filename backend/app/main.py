@@ -6,6 +6,13 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.services.backtest_center import (
+    backtest_engine_status,
+    get_backtest,
+    list_backtests,
+    start_backtest,
+)
+from backend.app.services.hikyuu_data import HikyuuDataError
 from backend.app.services.data_center import (
     data_health,
     get_announcements,
@@ -95,6 +102,34 @@ def data_jobs_run(job_type: str = Query(..., alias="type")) -> dict:
 @app.get("/api/data/scheduler")
 def data_scheduler() -> dict:
     return scheduler_status()
+
+
+@app.get("/api/backtests/hikyuu/status")
+def hikyuu_backtest_status() -> dict:
+    return backtest_engine_status()
+
+
+@app.post("/api/backtests", status_code=202)
+def backtests_create(payload: dict) -> dict:
+    try:
+        return start_backtest(payload)
+    except (ValueError, HikyuuDataError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.get("/api/backtests")
+def backtests_list() -> dict:
+    return list_backtests()
+
+
+@app.get("/api/backtests/{run_id}")
+def backtests_get(run_id: str) -> dict:
+    backtest = get_backtest(run_id)
+    if backtest is None:
+        raise HTTPException(status_code=404, detail="unknown backtest")
+    return backtest
 
 
 @app.get("/api/market/indexes")

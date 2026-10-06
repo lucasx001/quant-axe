@@ -15,7 +15,7 @@
 ## 执行步骤
 
 1. 定义 provider adapter 接口，统一外部数据源返回结构和错误格式。
-2. 接入 AkShare 作为行情展示、研究与回测优先数据源。
+2. 保留 AkShare 作为现有行情展示源；回测历史行情按 [Hikyuu 接入实施计划](../0006-backtest-center/hikyuu-implementation-plan.md)使用其官方导入工具取得固定快照。本条为后续选型修订，当前已实现的 AkShare 代码不代表回测数据已迁移。
 3. 移除 Sina 行情依赖，避免实时 quote、指数、K 线和盘口多源口径不一致。
 4. 接入 Tushare Token 配置，作为公告、财务指标和基础资料补充源；未配置时返回标准 `not_configured` 状态。
 5. 建立 PostgreSQL 连接、迁移方案和基础表管理流程。

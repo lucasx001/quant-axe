@@ -234,3 +234,19 @@ class UniverseMember(Base):
     can_sell: Mapped[bool] = mapped_column(Boolean)
     flags: Mapped[Any] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class BacktestRun(Base):
+    """Persist an exploratory Hikyuu run and its reproducible input manifest."""
+
+    __tablename__ = "backtest_runs"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    status: Mapped[str] = mapped_column(Text)
+    config: Mapped[Any] = mapped_column(JSONB)
+    snapshot_id: Mapped[str] = mapped_column(Text)
+    result: Mapped[Any | None] = mapped_column(JSONB)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

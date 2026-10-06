@@ -10,12 +10,10 @@ QuantDash 是一个面向个人投资者的轻量级量化看板。项目目标�
 - 顶部市场指数：上证指数、深证成指、创业板指、科创 50。
 - 前后端分离开发结构，使用 Taskfile 一键并行启动。
 
-仍是占位/待接入真实数据的模块：
+仍待完善的能力：
 
-- 公告
-- 全网舆情热词
-- 实时逐笔成交
-- 财务估值指标中的 PE/PB 等增强字段
+- Hikyuu 历史数据已完成本地日线导入和正式快照；复权、权息与历史交易状态仍需深入核验。
+- 回测中的历史交易约束、风险指标及完整的数据库任务链路验收。
 
 ## 技术架构
 
@@ -40,6 +38,8 @@ QuantDash 是一个面向个人投资者的轻量级量化看板。项目目标�
 
 - Next.js 16 App Router
 - React 19
+- TanStack React Query：用 `useQuery` 读取与轮询、`useQueries` 并行读取股票详情、`useMutation` 提交股票池与回测任务
+- Zustand：仅保存自选股、当前标的等界面状态；服务端数据由 React Query 缓存
 - Tailwind CSS
 - Apache ECharts
 - lucide-react 图标
@@ -55,6 +55,7 @@ QuantDash 是一个面向个人投资者的轻量级量化看板。项目目标�
 - Redis serving 层缓存
 - Tushare 公告和基础资料补充源
 - Cloudflare R2 `news-collector` 热点快照和 A 股时间线 AI 分析
+- Hikyuu 2.8.2 研究预览回测：官方导入器历史日线、版本化快照、独立任务进程和 `/backtests` 页面
 
 数据链路：
 
@@ -72,6 +73,8 @@ Next.js 的 BFF 路由默认通过 `MARKET_API_BASE_URL` 请求后端；未设�
 ```text
 http://127.0.0.1:8000
 ```
+
+回测中心的本地安装、官方历史数据导入、快照和启动步骤见[Hikyuu 本地回测运行说明](docs/0006-backtest-center/hikyuu-runbook.md)。当前回测仅是研究预览，历史交易约束和 Docker 部署仍待验收。
 
 ## 启动方式
 

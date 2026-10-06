@@ -50,6 +50,7 @@ function readChartTheme() {
     accent: styles.getPropertyValue("--accent").trim() || "#c96442",
     down: styles.getPropertyValue("--chart-down").trim() || "#2f7f68",
   };
+
 }
 
 function intradayAxisLabel(value: string, mode: ChartMode) {

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/api-client";
 import {
   ArrowLeft,
   Check,
@@ -57,16 +59,19 @@ const DEFAULT_FILTERS: UniverseFilter[] = [
   { type: "limit_up_down" },
 ];
 const DEFAULT_UNIVERSE_ID = "builtin-hs300-basic";
+const EMPTY_UNIVERSES: Universe[] = [];
 
 export function UniverseCenterPage() {
-  const [universes, setUniverses] = useState<Universe[]>([]);
+  const queryClient = useQueryClient();
+  const listQuery = useQuery({
+    queryKey: ["universes"],
+    queryFn: ({ signal }) => apiRequest<UniverseListPayload>("/api/universes", { signal }),
+  });
+  const universes = listQuery.data?.data ?? EMPTY_UNIVERSES;
   const [selectedId, setSelectedId] = useState(DEFAULT_UNIVERSE_ID);
-  const [draft, setDraft] = useState<UniverseDraft>(() => emptyDraft());
+  const [draftOverride, setDraftOverride] = useState<UniverseDraft | null>(null);
   const [targetDate, setTargetDate] = useState(todayInputValue());
   const [membersPayload, setMembersPayload] = useState<UniverseMembersPayload | null>(null);
-  const [listState, setListState] = useState<RequestState>("idle");
-  const [previewState, setPreviewState] = useState<RequestState>("idle");
-  const [saveState, setSaveState] = useState<RequestState>("idle");
   const [message, setMessage] = useState("");
   const [showExcludedOnly, setShowExcludedOnly] = useState(false);
 
@@ -74,140 +79,70 @@ export function UniverseCenterPage() {
     () => universes.find((universe) => universe.id === selectedId) ?? null,
     [selectedId, universes],
   );
+  const draft = draftOverride ?? (selectedUniverse ? universeToDraft(selectedUniverse) : emptyDraft());
   const selectedIsBuiltin = selectedId.startsWith("builtin-");
   const dirty = selectedUniverse ? !sameDraft(selectedUniverse, draft) : true;
+  const listState: RequestState = listQuery.isError ? "error" : listQuery.isPending || listQuery.isFetching
+    ? "loading" : "ready";
+
+  const previewMutation = useMutation({
+    mutationFn: ({ id, nextDraft, date }: { id: string; nextDraft: UniverseDraft; date: string }) =>
+      apiRequest<UniverseMembersPayload>(`/api/universes/${id}/preview`, {
+        method: "POST", body: JSON.stringify(draftToPayload(nextDraft, date)),
+      }),
+    onSuccess: (payload) => { setMembersPayload(payload); setMessage(""); },
+    onError: (error) => setMessage(errorMessage(error, "预览失败")),
+  });
+  const saveMutation = useMutation({
+    mutationFn: ({ id, nextDraft, create }: { id: string; nextDraft: UniverseDraft; create: boolean }) =>
+      apiRequest<Universe>(create ? "/api/universes" : `/api/universes/${id}`, {
+        method: create ? "POST" : "PATCH",
+        body: JSON.stringify(draftToPayload(nextDraft)),
+      }),
+    onSuccess: (saved, variables) => {
+      setSelectedId(saved.id);
+      setDraftOverride(universeToDraft(saved));
+      setMembersPayload(null);
+      setMessage(variables.create ? "已创建股票池" : "已保存股票池");
+      void queryClient.invalidateQueries({ queryKey: ["universes"] });
+    },
+    onError: (error) => setMessage(errorMessage(error, "保存失败")),
+  });
+  const snapshotMutation = useMutation({
+    mutationFn: ({ id, date }: { id: string; date: string }) =>
+      apiRequest<UniverseMembersPayload>(`/api/universes/${id}/snapshot`, {
+        method: "POST", body: JSON.stringify({ date }),
+      }),
+    onSuccess: (payload) => {
+      setMembersPayload(payload);
+      setMessage(`已保存 ${payload.saved ?? payload.total} 条快照`);
+    },
+    onError: (error) => setMessage(errorMessage(error, "快照保存失败")),
+  });
+  const previewState: RequestState = previewMutation.isPending ? "loading"
+    : previewMutation.isError ? "error" : previewMutation.isSuccess ? "ready" : "idle";
+  const saveState: RequestState = saveMutation.isPending || snapshotMutation.isPending ? "loading"
+    : saveMutation.isError || snapshotMutation.isError ? "error"
+      : saveMutation.isSuccess || snapshotMutation.isSuccess ? "ready" : "idle";
 
   const visibleMembers = useMemo(() => {
     const rows = membersPayload?.data ?? [];
     return showExcludedOnly ? rows.filter((row) => !row.included) : rows;
   }, [membersPayload, showExcludedOnly]);
 
-  useEffect(() => {
-    async function loadInitialUniverses() {
-      setListState("loading");
-      setMessage("");
-      try {
-        const payload = await fetchJson<UniverseListPayload>("/api/universes");
-        const nextSelected = payload.data.find((item) => item.id === DEFAULT_UNIVERSE_ID) ?? payload.data[0];
-        setUniverses(payload.data);
-        if (nextSelected) {
-          setSelectedId(nextSelected.id);
-          setDraft(universeToDraft(nextSelected));
-        }
-        setListState("ready");
-      } catch (error) {
-        setListState("error");
-        setMessage(errorMessage(error, "股票池列表不可用"));
-      }
-    }
-
-    void loadInitialUniverses();
-  }, []);
-
-  async function loadUniverses(nextSelectedId = selectedId) {
-    setListState("loading");
-    setMessage("");
-    try {
-      const payload = await fetchJson<UniverseListPayload>("/api/universes");
-      setUniverses(payload.data);
-      const nextSelected = payload.data.find((item) => item.id === nextSelectedId) ?? payload.data[0];
-      setSelectedId(nextSelected?.id ?? "");
-      if (nextSelected) {
-        setDraft(universeToDraft(nextSelected));
-      }
-      setListState("ready");
-    } catch (error) {
-      setListState("error");
-      setMessage(errorMessage(error, "股票池列表不可用"));
-    }
-  }
-
-  async function previewUniverse() {
-    if (!selectedId) {
-      return;
-    }
-    setPreviewState("loading");
-    setMessage("");
-    try {
-      const payload = await fetchJson<UniverseMembersPayload>(
-        `/api/universes/${selectedId}/preview`,
-        {
-          method: "POST",
-          body: JSON.stringify(draftToPayload(draft, targetDate)),
-        },
-      );
-      setMembersPayload(payload);
-      setPreviewState("ready");
-    } catch (error) {
-      setPreviewState("error");
-      setMessage(errorMessage(error, "预览失败"));
-    }
-  }
-
-  async function saveUniverse() {
-    setSaveState("loading");
-    setMessage("");
-    try {
-      const response = selectedIsBuiltin
-        ? await fetchJson<Universe>("/api/universes", {
-            method: "POST",
-            body: JSON.stringify(draftToPayload(draft)),
-          })
-        : await fetchJson<Universe>(`/api/universes/${selectedId}`, {
-            method: "PATCH",
-            body: JSON.stringify(draftToPayload(draft)),
-          });
-      setSaveState("ready");
-      setMessage(selectedIsBuiltin ? "已创建股票池" : "已保存股票池");
-      await loadUniverses(response.id);
-    } catch (error) {
-      setSaveState("error");
-      setMessage(errorMessage(error, "保存失败"));
-    }
-  }
-
-  async function createUniverseFromDraft() {
+  function createUniverseFromDraft() {
     const freshDraft = {
       ...draft,
       name: draft.name.trim() ? `${draft.name.trim()} 副本` : "新股票池",
     };
-    setSaveState("loading");
     setMessage("");
-    try {
-      const response = await fetchJson<Universe>("/api/universes", {
-        method: "POST",
-        body: JSON.stringify(draftToPayload(freshDraft)),
-      });
-      setSaveState("ready");
-      setMessage("已另存为新股票池");
-      await loadUniverses(response.id);
-    } catch (error) {
-      setSaveState("error");
-      setMessage(errorMessage(error, "创建失败"));
-    }
+    saveMutation.mutate({ id: "", nextDraft: freshDraft, create: true });
   }
 
-  async function snapshotUniverse() {
-    if (!selectedId || dirty) {
-      return;
-    }
-    setSaveState("loading");
+  function snapshotUniverse() {
+    if (!selectedId || dirty) return;
     setMessage("");
-    try {
-      const payload = await fetchJson<UniverseMembersPayload>(
-        `/api/universes/${selectedId}/snapshot`,
-        {
-          method: "POST",
-          body: JSON.stringify({ date: targetDate }),
-        },
-      );
-      setMembersPayload(payload);
-      setSaveState("ready");
-      setMessage(`已保存 ${payload.saved ?? payload.total} 条快照`);
-    } catch (error) {
-      setSaveState("error");
-      setMessage(errorMessage(error, "快照保存失败"));
-    }
+    snapshotMutation.mutate({ id: selectedId, date: targetDate });
   }
 
   return (
@@ -233,7 +168,7 @@ export function UniverseCenterPage() {
           <div className="flex shrink-0 items-center gap-2">
             <StatusPill state={listState} label={universes.length ? `${universes.length} pools` : "loading"} />
             <ThemeToggle />
-            <IconButton label="刷新股票池" onClick={() => void loadUniverses()} icon={<RefreshCw size={16} />} />
+            <IconButton label="刷新股票池" onClick={() => void listQuery.refetch()} icon={<RefreshCw size={16} />} />
           </div>
         </div>
       </header>
@@ -245,14 +180,16 @@ export function UniverseCenterPage() {
           state={listState}
           onSelectUniverse={(universe) => {
             setSelectedId(universe.id);
-            setDraft(universeToDraft(universe));
+            setDraftOverride(universeToDraft(universe));
             setMembersPayload(null);
+            previewMutation.reset();
             setMessage("");
           }}
           onCreate={() => {
             setSelectedId("");
-            setDraft(emptyDraft());
+            setDraftOverride(emptyDraft());
             setMembersPayload(null);
+            previewMutation.reset();
           }}
         />
 
@@ -263,19 +200,23 @@ export function UniverseCenterPage() {
           saveState={saveState}
           previewState={previewState}
           targetDate={targetDate}
-          onDraftChange={setDraft}
+          onDraftChange={setDraftOverride}
           onTargetDateChange={setTargetDate}
-          onPreview={() => void previewUniverse()}
-          onSave={() => void saveUniverse()}
-          onCreateCopy={() => void createUniverseFromDraft()}
-          onSnapshot={() => void snapshotUniverse()}
+          onPreview={() => {
+            if (selectedId) previewMutation.mutate({ id: selectedId, nextDraft: draft, date: targetDate });
+          }}
+          onSave={() => saveMutation.mutate({
+            id: selectedId, nextDraft: draft, create: selectedIsBuiltin || !selectedId,
+          })}
+          onCreateCopy={createUniverseFromDraft}
+          onSnapshot={snapshotUniverse}
         />
 
         <PreviewPanel
           payload={membersPayload}
           rows={visibleMembers}
           state={previewState}
-          message={message}
+          message={message || listQuery.error?.message || ""}
           showExcludedOnly={showExcludedOnly}
           onShowExcludedOnly={setShowExcludedOnly}
         />
@@ -799,19 +740,6 @@ function StatusPill({ state, label }: { state: RequestState; label: string }) {
       {label}
     </span>
   );
-}
-
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    cache: "no-store",
-    headers: init?.body ? { "content-type": "application/json" } : undefined,
-    ...init,
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.detail ?? data?.error ?? `request failed: ${response.status}`);
-  }
-  return data as T;
 }
 
 function emptyDraft(): UniverseDraft {

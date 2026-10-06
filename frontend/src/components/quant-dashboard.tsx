@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   FinancialSummaryPanel,
   KlinePanel,
@@ -15,7 +16,7 @@ import {
 import {
   useKlineData,
   useMarketDetails,
-  useMarketSnapshotPolling,
+  useMarketSnapshot,
   useStockLookup,
   useWatchlistPersistence,
 } from "@/components/market-dashboard/use-market-dashboard-data";
@@ -27,13 +28,6 @@ export function QuantDashboard() {
     selectedSymbol,
     watchlist,
     mode,
-    quoteCache,
-    lookupQuote,
-    lookupStatus,
-    chartData,
-    chartStatus,
-    indexes,
-    dataStatus,
     setQuery,
     setSelectedSymbol,
     setMode,
@@ -42,13 +36,14 @@ export function QuantDashboard() {
   } = useMarketStore();
 
   useWatchlistPersistence();
-  useMarketSnapshotPolling();
-  useKlineData();
-
-  const { results: searchResults, searchStatus } = useStockLookup(query);
+  const symbols = useMemo(() => Array.from(new Set([selectedSymbol, ...watchlist])), [selectedSymbol, watchlist]);
+  const { quoteCache, indexes, dataStatus } = useMarketSnapshot(symbols);
+  const { data: chartData, status: chartStatus } = useKlineData(selectedSymbol, mode);
+  const { results: searchResults, searchStatus, lookupQuote, lookupStatus } = useStockLookup(query);
   const details = useMarketDetails(selectedSymbol);
   const selectedQuoteEntry = quoteCache[selectedSymbol];
-  const selectedQuote = selectedQuoteEntry?.quote ?? lookupQuote;
+  const selectedQuote = selectedQuoteEntry?.quote
+    ?? (lookupQuote?.symbol === selectedSymbol ? lookupQuote : null);
 
   return (
     <main className="min-h-screen bg-[#080a0d] text-slate-100">

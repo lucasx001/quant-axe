@@ -1,0 +1,2 @@
+# Install after backend/requirements-dev.txt for the optional history/backtest worker.
+hikyuu==2.8.2

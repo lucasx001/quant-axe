@@ -41,9 +41,10 @@ External Sources
 | 批处理            | Pandas / Polars                                        |
 | 任务调度          | APScheduler / Celery / Prefect                         |
 | 关系数据          | PostgreSQL                                             |
-| 历史行情/因子矩阵 | PostgreSQL（第一阶段）；Parquet / DuckDB 后续评估      |
+| 回测历史行情      | Hikyuu 官方工具导入的本地存储；首轮评估默认 HDF5        |
+| 展示行情/因子矩阵 | PostgreSQL（现有）；Parquet / DuckDB 后续评估           |
 | 高频缓存          | Redis                                                  |
-| 数据源            | AkShare 行情与个股新闻，`news-collector` R2 热点快照，Tushare 公告与财务 |
+| 数据源            | Hikyuu 官方导入工具获取回测历史行情；AkShare 展示行情与个股新闻，`news-collector` R2 热点快照，Tushare 补充资料 |
 
 ## 4. 数据分层
 
@@ -122,8 +123,8 @@ GET /api/intelligence/hot-keywords?limit=
 | 实时 quote / 五档 / 分时 / 逐笔 | AkShare                                  | —                                      |
 | 指数实时行情                    | AkShare                                  | —                                      |
 | 历史日 K（展示）                | AkShare                                  | Tushare daily                          |
-| 历史日 K（回测核心）            | Tushare（后续迁移）                      | AkShare 校验                           |
-| 复权因子                        | Tushare `adj_factor`（后续）             | AkShare `adjust=qfq`                   |
+| 历史日 K（回测核心）            | Hikyuu `HikyuuTDX` / `importdata` 导入的固定快照 | 缺失即标记不可用，不自动回退展示接口 |
+| 回测复权/企业行为               | 先核验 Hikyuu 导入的数据与引擎口径       | 不完整时阻止对应范围的正式回测         |
 | 股票基础信息                    | Tushare `stock_basic`                    | AkShare 拼音/简称补充                  |
 | 交易日历                        | AkShare `tool_trade_date_hist_sina`      | Tushare `trade_cal`                    |
 | 涨跌停价格                      | 自算（前收盘 × 比例）                    | Tushare `stk_limit`（后续）            |
@@ -161,6 +162,14 @@ GET /api/intelligence/hot-keywords?limit=
 - 不要用 AkShare `adjust=qfq` 直接做回测：动态前复权基准日不固定，不同时间拉同一段历史会得到不同价格。
 - ST 状态必须用历史口径：当前 `is_st_name(profile.name)` 只看今天的名称，回测会判错涨跌停比例。
 - Tushare 积分门槛需提前规划：`daily_basic` + `fina_indicator` 需要 2000 积分。
+
+### 7.5 Hikyuu 历史回测数据决策（2026-09-26）
+
+- A 股日频回测历史行情采用 Hikyuu 官方提供的下载/导入工具。`HikyuuTDX` 首次生成配置，`importdata` 可用于后续导入；工具获取外部行情并写入本地存储，不是安装包内附的完整历史数据库。参见 [官方 README](https://github.com/fasiondog/hikyuu)和[新手入门](https://hikyuu.readthedocs.io/zh-cn/latest/quickstart.html)。
+- 上表的 Tushare `adj_factor`、`namechange`、`suspend_d`、`stk_limit`、`index_weight` 属于历史规划或辅助数据候选，不能视为 Hikyuu 已自带的数据；具体覆盖和授权需在导入样本上核验。
+- 现有 `daily_bars` 与看板 K 线仍描述当前实现；回测读取固定的 Hikyuu 数据快照。标准化副本可入 PostgreSQL 服务其他模块，但必须标记导入批次、来源、日期覆盖与口径。
+- 历史 ST、停牌、涨跌停、退市与指数成分按日期可用性是回测前置条件。当前简称推断 ST、日 K 缺失推断停牌、当前指数成分回填历史，均不得进入正式回测。
+- 执行与验收步骤见[Hikyuu 接入实施计划](../0006-backtest-center/hikyuu-implementation-plan.md)。
 
 ## 8. 调度器设计
 

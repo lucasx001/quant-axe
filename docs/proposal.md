@@ -201,8 +201,8 @@ Serving 服务层
 #### 4.2.4 功能需求
 
 - 数据源适配：
-  - MVP 行情展示、研究与回测优先接入 AkShare。
-  - 后续可扩展 Tushare、东方财富、JoinQuant、RiceQuant。
+  - MVP 行情展示继续使用 AkShare；A 股日频历史回测选用 Hikyuu 官方 `HikyuuTDX` / `importdata` 工具导入的数据，详见[实施计划](./0006-backtest-center/hikyuu-implementation-plan.md)。
+  - Tushare 等其他来源只在其既有职责内使用；回测历史行情新增来源需另行决策。
 - 数据质量检查：
   - 缺失值检查。
   - 重复交易日检查。
@@ -745,9 +745,9 @@ POST /api/alerts
 
 - **框架**：Python FastAPI。
 - **数据处理**：Pandas / Polars。
-- **数据源**：AkShare，后续可扩展 Tushare、东方财富等。
+- **数据源**：AkShare 服务现有展示行情；Hikyuu 官方工具导入 A 股历史回测行情；Tushare 保留现有基础资料等补充用途。
 - **任务调度**：APScheduler / Celery / Prefect。
-- **回测引擎**：自研日频事件驱动回测，后续可评估 Backtrader、Qlib 等框架。
+- **回测引擎**：Hikyuu A 股日频回测；平台开发任务调度、策略/股票池适配和结果接口。执行计划见[Hikyuu 接入实施计划](./0006-backtest-center/hikyuu-implementation-plan.md)。
 
 ### 5.4 存储
 
@@ -755,7 +755,8 @@ POST /api/alerts
 | --- | --- |
 | PostgreSQL | 用户、自选股、股票基础信息、财务、新闻、回测记录 |
 | Redis | 高频 quote、盘口、分时、任务状态缓存 |
-| Parquet / DuckDB | 大规模历史行情、因子矩阵、回测读取 |
+| Hikyuu 本地数据存储 | 通过官方工具导入并固定版本的 A 股回测历史行情；首轮评估默认 HDF5 |
+| Parquet / DuckDB | 大规模因子矩阵与研究数据的后续评估选项 |
 | localStorage | MVP 阶段自选股本地保存 |
 
 ### 5.5 推荐服务拆分
@@ -990,7 +991,7 @@ warnings
 
 ### 第四阶段：回测中心
 
-- [ ] 实现日频回测引擎。
+- [ ] 接入 Hikyuu 日频回测引擎，核验官方导入数据并完成策略/股票池适配。
 - [ ] 支持手续费、滑点、T+1、停牌、涨跌停。
 - [ ] 支持收益曲线、回撤曲线、交易明细、持仓明细。
 - [ ] 支持年化收益、最大回撤、夏普、Calmar、胜率、换手率。

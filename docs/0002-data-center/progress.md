@@ -52,6 +52,11 @@
 
 ## 阻塞/待确认
 
+- [x] 回测历史行情路线已选定 Hikyuu 官方 `HikyuuTDX` / `importdata` 导入；现有 AkShare K 线仍供展示。选型记录见[实施计划](../0006-backtest-center/hikyuu-implementation-plan.md)。
+- [x] 验证 Windows 本地 Hikyuu 安装和增量导入；沪深北在市 A 股日线表覆盖齐全，并生成带校验值的正式快照。
+- [ ] 验证 Linux/Docker 目标环境、复权/权息和基准指数口径；仅有日线表覆盖不等于数据内容全面验收。
+- [ ] 补齐并核验历史 ST、停牌、涨跌停、退市和逐日指数成分，建立可复现的导入批次与数据质量报告。
+
 - [x] 历史行情数据源优先使用 AkShare 还是申请 Tushare Token：行情继续优先 AkShare，Tushare 作为公告、财务、基础资料补充源。
 - [x] 热点新闻是否使用公开 NewsNow 实例作为 MVP，或优先自建 NewsNow 服务：MVP 使用可配置 `NEWSNOW_API_BASE`，默认公开实例。
 - [x] 历史行情存储方案：第一阶段使用 PostgreSQL 单一存储，待分钟线/Tick 进入再评估 Parquet/DuckDB。

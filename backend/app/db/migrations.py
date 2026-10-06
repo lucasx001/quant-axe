@@ -18,7 +18,7 @@ LEGACY_BASELINE_REVISION = "20260602_0001"
 LEGACY_TABLE_NAMES = frozenset(
     table_name
     for table_name in Base.metadata.tables
-    if table_name not in {"hot_news_ai_analyses", "hot_news_ai_analysis_runs"}
+    if table_name not in {"hot_news_ai_analyses", "hot_news_ai_analysis_runs", "backtest_runs"}
 )
 
 def alembic_config() -> Config:

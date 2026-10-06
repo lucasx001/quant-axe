@@ -22,6 +22,7 @@
 - [x] 增加 Next.js BFF route handlers 转发 Universe Center API。
 - [x] 增加 `/universes` Universe Center 管理页面，支持股票池列表、配置编辑、临时预览、保存、另存副本和生成快照。
 - [x] 在首页策略观察区域增加 Universe Center 入口。
+- [x] 前端股票池列表使用 React Query 缓存，预览、保存与生成快照使用 `useMutation`，保存后刷新列表缓存。
 
 ## 待完成
 

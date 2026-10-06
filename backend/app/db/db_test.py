@@ -51,6 +51,7 @@ class DatabaseInfrastructureTest(unittest.TestCase):
     def test_metadata_contains_data_center_tables(self) -> None:
         self.assertEqual(
             {
+                "backtest_runs",
                 "daily_bars",
                 "data_jobs",
                 "financial_metrics",

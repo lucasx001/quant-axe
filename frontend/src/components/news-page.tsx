@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   BrainCircuit,
@@ -33,6 +34,7 @@ type SourceOption = {
 const SOURCE_ORDER = ["cls-hot", "wallstreetcn-hot", "ifeng"];
 
 export function NewsPage() {
+  const queryClient = useQueryClient();
   const hotNews = useHotNews(200);
   const analysis = useNewsAnalysis();
   const [activeSource, setActiveSource] = useState("all");
@@ -81,7 +83,10 @@ export function NewsPage() {
             <ThemeToggle />
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                void queryClient.invalidateQueries({ queryKey: ["news", "hot", 200] });
+                void queryClient.invalidateQueries({ queryKey: ["news", "analysis", "latest"] });
+              }}
               className="grid size-9 place-items-center rounded-md border border-white/10 text-slate-400 transition hover:border-emerald-300/50 hover:text-emerald-200"
               aria-label="刷新新闻"
             >
